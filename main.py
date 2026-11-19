@@ -86,6 +86,18 @@ def validate_matrix(matrix, size, name):
                 raise ValueError(f"{name}: {row_number}행에 유한한 숫자가 필요합니다.")
 
 
+def normalize_label(raw_label):
+    """필터 키와 기대 라벨을 공통 표준 이름으로 변환한다."""
+    aliases = {"+": "Cross", "cross": "Cross", "x": "X"}
+    if not isinstance(raw_label, str):
+        raise ValueError("라벨은 문자열이어야 합니다.")
+
+    label = aliases.get(raw_label.strip().lower())
+    if label is None:
+        raise ValueError(f"알 수 없는 라벨: {raw_label!r}")
+    return label
+
+
 def json_mode():
     data_path = Path(__file__).with_name("data.json")
 
@@ -108,8 +120,6 @@ def json_mode():
     if not isinstance(filter_groups, dict):
         filter_groups = {}
 
-    expected_labels = {"+": "Cross", "cross": "Cross", "x": "X"}
-    filter_labels = {"cross": "Cross", "x": "X"}
     epsilon = 1e-9
     passed = 0
     failed_cases = {}
@@ -131,9 +141,9 @@ def json_mode():
 
             filters = {}
             for raw_label, matrix in raw_filters.items():
-                label = filter_labels.get(raw_label.strip().lower())
-                if label is None or label in filters:
-                    raise ValueError(f"잘못됐거나 중복된 필터 라벨: {raw_label}")
+                label = normalize_label(raw_label)
+                if label in filters:
+                    raise ValueError(f"중복된 필터 라벨: {raw_label}")
                 validate_matrix(matrix, size, f"{filter_key}.{label}")
                 filters[label] = matrix
 
@@ -143,13 +153,7 @@ def json_mode():
             if not isinstance(case, dict) or "input" not in case:
                 raise ValueError("패턴에 input이 필요합니다.")
 
-            raw_expected = case.get("expected")
-            if not isinstance(raw_expected, str):
-                raise ValueError("expected에 문자열 라벨이 필요합니다.")
-
-            expected = expected_labels.get(raw_expected.strip().lower())
-            if expected is None:
-                raise ValueError(f"알 수 없는 기대 라벨: {raw_expected}")
+            expected = normalize_label(case.get("expected"))
 
             pattern = case["input"]
             validate_matrix(pattern, size, "입력 패턴")
@@ -201,15 +205,19 @@ def json_mode():
         print(f"- {case_name}: {reason}")
 
 
-print("Mini NPU Simulator 시작")
-print("1. 사용자 입력 (3×3)")
-print("2. data.json 분석")
+def main():
+    print("Mini NPU Simulator 시작")
+    print("1. 사용자 입력 (3×3)")
+    print("2. data.json 분석")
 
-choice = input("선택: ").strip()
+    choice = input("선택: ").strip()
+    if choice == "1":
+        manual_mode()
+    elif choice == "2":
+        json_mode()
+    else:
+        print("1 또는 2를 입력하세요.")
 
-if choice == "1":
-    manual_mode()
-elif choice == "2":
-    json_mode()
-else:
-    print("1 또는 2를 입력하세요.")
+
+if __name__ == "__main__":
+    main()
